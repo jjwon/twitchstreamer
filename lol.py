@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
 import urllib2
@@ -7,7 +7,25 @@ import os
 import sys
 
 """
-grab_streams returns a 
+
+First goals: get all the data that we want.
+
+Initially, we want to be able to sort by:
+- favorites
+- featured
+- individual games
+
+Within each category, we can sort by viewers.
+
+Print the channel's name, then the status
+
+Allow them to select a number, and then it will open the corresponding
+twitch.tv URL in livestreamer
+
+Set the first option afterwards to be "best" if no configuration specified in
+the configuration files.  You can just hit enter.
+
+
 """
 
 class StreamParser:
@@ -17,7 +35,7 @@ class StreamParser:
 	def __init__(self, url="https://api.twitch.tv/kraken/streams", num=25):
 		self.url = url + "?limit=" + str(num)
 	
-	def grab_streams(self):
+	def grab_streams(self, game=None):
 		data = urllib2.urlopen(self.url).read()
 		data = json.loads(data)
 		return data
@@ -37,7 +55,7 @@ class StreamParser:
 def main():
 	parser = StreamParser(num=100)
 	parser.print_status()
-	#parser.output_data()
+	parser.output_data()
 	
 if __name__ == "__main__":
 	main()
