@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import requests
+import subprocess
 
 """
 
@@ -31,6 +32,16 @@ Eventually, we probably want to define things like:
 - other url's that we use would build from it, aka STREAM_URL, GAME_URL, etc.
 
 
+
+THINGS THAT I CAN NOW DO:
+- find games, sorted by how popular they are
+- choose a game from a game list, and look at the streams for that game
+
+NEXT STEP:
+- 
+
+
+
 """
 
 # game_dict = {
@@ -52,17 +63,15 @@ class StreamParser:
 	def grab_all_streams(self, game):
 		params = {"limit": self.num, "game": game}
 		data = requests.get(self.url, params = params)
-		print data.url
 		# out_url = self.url + "/streams?limit=" + str(self.num)
 		# data = urllib2.urlopen(out_url).read()
 		# data = json.loads(data)
 		self.stream_list = data.json()
 
 	def grab_featured_streams(self):
-		out_url = self.url + "/featured" + "?limit=" + str(self.num)
-		data = urllib2.urlopen(out_url).read()
-		data = json.loads(data)
-		self.stream_list = data
+		params = {"limit": self.num}
+		data = requests.get(self.url + "/featured", params = params)
+		self.stream_list = data.json()
 
 
 	def grab_favorite_streams(self):
@@ -70,10 +79,9 @@ class StreamParser:
 
 
 	def grab_game_stream(self, game):
-		out_url = self.url + "?q=" + game
-		data = urllib2.urlopen(out_url).read()
-		data = json.loads(data)
-		self.stream_list = data
+		params = {"game": game, "limit": 25}
+		data = requests.get(self.url, params = params)
+		self.stream_list = data.json()
 
 
 	def find_popular_games(self):
@@ -90,7 +98,6 @@ class StreamParser:
 
 	def print_game_list(self):
 		print self.game_list
-		print len(self.game_list)
 
 
 	def print_status(self):
@@ -98,11 +105,30 @@ class StreamParser:
 			print "Error: please choose a type of stream to view first!" # should never happen in regular execution
 			sys.exit(1) # probably don't need this outside of testing
 		for stream in self.stream_list["streams"]:
-			s = stream["channel"]["status"]
-			out = '' if s is None else s.encode('ascii', 'ignore')
+			#s = stream["channel"]["status"]
+			s = stream["channel"]["name"]
+			out = s.encode('ascii', 'ignore')
 			print out
-		print len(self.stream_list["streams"])
+
+
+	def print_featured_streams(self):
+		i = 0
+		for stream in self.stream_list["featured"]:
+			s = stream["stream"]["channel"]["name"]
+			out = s.encode('ascii', 'ignore')
+			print str(i) + out
+			i += 1
+
+
+	def store_featured_streams(self):
+		yolo = []
+		for stream in self.stream_list["featured"]:
+			s = stream["stream"]["channel"]["name"]
+			out = s.encode('ascii', 'ignore')
+			yolo.append(out)
+		return yolo
 		
+
 	def output_data(self, filename="data.txt"):
 		if self.stream_list == None:
 			print "Error: please choose a type of stream to view first!" # should never happen in regular execution
@@ -110,14 +136,26 @@ class StreamParser:
 		with open(filename, 'w') as outfile:
 			json.dump(self.stream_list, outfile, sort_keys=False, indent=4, separators=(',', ': '))
 
+
 def main():
-	parser = StreamParser(num=100)
+	parser = StreamParser(num=25)
 	#parser.grab_game_stream("starcraft")
-	parser.find_popular_games()
-	parser.print_game_list()
+	#parser.find_popular_games()
+	#parser.print_game_list()
+	#parser.grab_game_stream(parser.game_list[0])
 	#parser.grab_all_streams()
 	#parser.print_status()
 	#parser.output_data()
+	print "yo mang dis dat twitchstreamer boothang"
+	parser.grab_featured_streams()
+	parser.print_featured_streams()
+	yolo = parser.store_featured_streams()
+	print yolo
+	chosen_stream = raw_input("what u wanna watch")
+	print "livestreamer " + "twitch.tv/" + yolo[int(chosen_stream)] + " best"
+	subprocess.call("livestreamer " + "twitch.tv/" + yolo[int(chosen_stream)] + " best")
+
+
 	
 if __name__ == "__main__":
 	main()
