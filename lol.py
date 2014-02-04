@@ -163,6 +163,9 @@ def main():
 		# be more than 10ish featured streams...
 		parser.get_featured_streams()
 		parser.print_streams()
+		stream_selection = selection_loop(parser.num+1)
+		chosen_stream = parser.stream_list[stream_selection]["channel"]["name"]
+		print chosen_stream
 
 	elif int(selection) == 1:
 		# load the first 10 most popular games into parser.game_list and print it
@@ -199,7 +202,7 @@ def main():
 	else:
 		pass
 
-	subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best")
+	subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best", shell=True)
 
 
 	
