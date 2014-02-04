@@ -131,7 +131,7 @@ def selection_loop(num):
 	while True:
 		selection = raw_input("Selection: ")
 		print 
-		if not selection.isdigit():
+		if not selection.isdigit() or int(selection) > num:
 			print "Invalid selection, please choose again."
 		else:
 			break
@@ -174,7 +174,7 @@ def main():
 		# load the first 10 most popular games into parser.game_list and print it
 		parser.find_popular_games()
 		parser.print_game_list()
-		game_selection = selection_loop(parser.num+1)
+		game_selection = selection_loop(parser.num)
 
 		# Enters a "show more" loop, if user wants to see more games.
 		i = 1
@@ -182,7 +182,7 @@ def main():
 			num_shown = parser.num*i
 			parser.find_popular_games(offset=num_shown)
 			parser.print_game_list()
-			game_selection = selection_loop(parser.num+1)
+			game_selection = selection_loop(parser.num)
 			i += 1
 
 		chosen_game = parser.game_list[game_selection]
@@ -190,14 +190,14 @@ def main():
 		parser.print_streams()
 
 		# Enters a "show more" loop, if user wants to see more streams.
-		stream_selection = selection_loop(parser.num+1)
 		print "10) Show more"
+		stream_selection = selection_loop(parser.num+1)
 		i = 1
 		while stream_selection == 10:
 			num_shown = parser.num*i
 			parser.grab_game_stream(chosen_game, offset=num_shown)
 			parser.print_streams()
-
+			print "10) Show more"
 			stream_selection = selection_loop(parser.num+1)
 			i += 1
 
