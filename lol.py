@@ -127,7 +127,7 @@ def selection_loop(num):
 	while True:
 		selection = raw_input("Selection: ")
 		print 
-		if selection == '' or int(selection) not in range(0, num):
+		if not selection.isdigit():
 			print "Invalid selection, please choose again."
 		else:
 			break
@@ -163,7 +163,7 @@ def main():
 		# be more than 10ish featured streams...
 		parser.get_featured_streams()
 		parser.print_streams()
-		stream_selection = selection_loop(parser.num+1)
+		stream_selection = selection_loop(len(parser.stream_list))
 		chosen_stream = parser.stream_list[stream_selection]["channel"]["name"]
 
 	elif int(selection) == 1:
@@ -187,12 +187,13 @@ def main():
 
 		# Enters a "show more" loop, if user wants to see more streams.
 		stream_selection = selection_loop(parser.num+1)
-
+		print "10) Show more"
 		i = 1
 		while stream_selection == 10:
 			num_shown = parser.num*i
 			parser.grab_game_stream(chosen_game, offset=num_shown)
 			parser.print_streams()
+
 			stream_selection = selection_loop(parser.num+1)
 			i += 1
 
