@@ -1,6 +1,7 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
+from distutils import spawn
 import urllib2
 import json
 import os
@@ -206,7 +207,13 @@ def main():
 	else:
 		pass
 
-	subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best", shell=True)
+        mpv_path = spawn.find_executable("mpv")
+
+        if mpv_path:
+                subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best " + \
+                                "-p mpv -a '--title=twitch.tv/{0} {1}'".format(chosen_stream, "{filename}"), shell=True)
+        else:
+                subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best", shell=True)
 
 
 	
