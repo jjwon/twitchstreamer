@@ -69,7 +69,8 @@ class StreamParser:
 			if len(streamer + index) < (8*2):
 				streamer += "\t"
 			streamer += "\t"
-			status = stream["channel"]["status"]
+			if "status" in stream["channel"]:
+				status = stream["channel"]["status"]
 			if status:
 				status = status.encode('ascii', 'ignore')
 				if len(status) > (self.term_width-24): # checks if line overflows
