@@ -1,215 +1,145 @@
 #!/usr/bin/python2
-# -*- coding: utf-8 -*-
-
-import urllib2
-import json
-import os
-import sys
-import requests
-import subprocess
-import getTerminalSize
-
 """
+Usage: watch.py
 
-Set the first option afterwards to be "best" if no configuration specified in
-the configuration files.  You can just hit enter.
+Opens an interactive session where you can search for streams to watch on Twitch.
 
-Eventually, we probably want to define things like:
+TODO:
+- Refactor using Click instead so we don't have to do so much dumb input grabbing
 - BASE_URL at the top, which would be https://api.twitch.tv/kraken
 - other url's that we use would build from it, aka STREAM_URL, GAME_URL, etc.
-
-To-do list:
 - get configuration files to work
 - fix the occasional errors in printing: sanitize stream statuses
 - if there aren't 10 streams to show, then only show however many there are (right now it errors)
-
-
-
-
 """
 
-class StreamParser:
+import json
+import click
+import sys
+import requests
+import subprocess
+import getTerminalSize as gts
 
-	"""Parses stream list JSON data"""
-	
-	def __init__(self, term_width, num=25):
-		self.term_width = term_width
-		self.num = num
-		self.url = "https://api.twitch.tv/kraken/streams"
-		self.game_list = []
-		self.stream_list = None
-		# CHECK FOR CONFIGURATION FILE~!
+class StreamParser(object):
+    """Parses stream list JSON data"""
 
+    BASE_TWITCH_URL = "https://api.twitch.tv/kraken/streams"
 
-	def get_featured_streams(self, offset=0):
-		params = {"limit": self.num, "offset": offset}
-		raw_data = requests.get(self.url + "/featured", params = params)
-		json_data = raw_data.json()
-		self.stream_list = []
-		for i in range(0, len(json_data["featured"])):
-			self.stream_list.append(json_data["featured"][i]["stream"])
+    def __init__(self, limit=25, url=BASE_TWITCH_URL):
+        self.url = url
+        self.limit = limit
+        self.game_list = []
 
+    def get_featured_twitch_streams(self, offset=0):
+        params = {"limit": self.limit, "offset": offset}
+        data = requests.get(self.url + "/featured", params=params).json()
+        featured = data["featured"]
+        stream_list = [f["stream"] for f in featured]
+        return stream_list
 
-	def grab_favorite_streams(self):
-		pass
+    def grab_favorite_streams(self):
+        pass
 
+    """
+    find_popular_games stores the names of the top self.limit games, sorted by
+    viewers, into self.game_list
+    """
+    def find_popular_games(self, offset=0):
+        params = {"limit": self.limit, "offset": offset}
+        data = requests.get("https://api.twitch.tv/kraken/games/top", params=params).json()
+        games = data["top"]
+        game_list = [g["game"]["name"] for g in games]
+        return game_list
 
-	"""
-	print_streams takes in an integer term_width, and prints self.stream_list 
-	in a pretty fashion
+    def get_game_streams(self, game, offset=0):
+        params = {"game": game, "limit": self.limit, "offset": offset}
+        data = requests.get(self.url, params=params).json()
+        return data["streams"]
 
-	"""
-	def print_streams(self):
-		for i in range(0, len(self.stream_list)):
-			index = str(i) + ") "
-			stream = self.stream_list[i]
-			streamer = stream["channel"]["name"].encode('ascii', 'ignore')
-			if len(streamer + index) < 8:
-				streamer += "\t"
-			if len(streamer + index) < (8*2):
-				streamer += "\t"
-			streamer += "\t"
-			if "status" in stream["channel"]:
-				status = stream["channel"]["status"]
-			if status:
-				status = status.encode('ascii', 'ignore')
-				if len(status) > (self.term_width-24): # checks if line overflows
-					status = status[0:(self.term_width-28)] + "..."
-			else:
-				status = ""
-			print index + streamer + status
-			i += 1
+    def output_data(self, filename="data.txt"):
+        if self.stream_list == None:
+            print "Error: please choose a type of stream to view first!" # should never happen in regular execution
+            sys.exit(1) # probably don't need this outside of testing
+        with open(filename, 'w') as outfile:
+            json.dump(self.stream_list, outfile, sort_keys=False, indent=4, separators=(',', ': '))
 
 
-	"""
-	find_popular_games stores the names of the top self.num games, sorted by
-	viewers, into self.game_list
-	"""
-	def find_popular_games(self, offset=0):
-		params = {"limit": self.num, "offset": offset}
-		raw_data = requests.get("https://api.twitch.tv/kraken/games/top", params = params)
-		json_data = raw_data.json()
-		top_games = json_data["top"]
-		self.game_list = []
-		for i in range(0, len(top_games)):
-			raw = top_games[i]["game"]["name"]
-			s = raw.encode('ascii', 'ignore')
-			self.game_list.append(s)
+def print_games(game_list):
+    """ Prints games in game_list to STDOUT in a reasonable way """
+    for i in range(0, len(game_list)):
+        index = str(i) + ". "
+        click.echo(index + game_list[i])
+    click.echo(str(len(game_list)) + ". " + "Show more")
 
+def print_streams(stream_list, term_width):
+    """ Prints streams in stream_list to STDOUT in a reasonable way """
+    for i in range(0, len(stream_list)):
+        line = str(i) + ". "
+        stream = stream_list[i]
+        line += stream["channel"]["name"].encode('ascii', 'ignore')
+        line += "\t" * ((24-len(line)) / 8 + 1)
 
-	"""
-	print_game_list prints out self.game_list in a neat fashion.  NOT SURE IF NEEDED.
-	"""
-	def print_game_list(self):
-		for i in range(0, len(self.game_list)):
-			index = str(i) + ") "
-			print index + self.game_list[i]
-		print str(len(self.game_list)) + ") " + "Show more"
+        line += stream["channel"]["status"] if "status" in stream["channel"] else ""
+        lines = [line]
+        while len(lines[-1]) > term_width:
+            line = lines.pop(-1)
+            lines.append(line[:term_width])
+            lines.append("\t\t\t" + line[term_width:])
+        click.echo(''.join(lines))
 
-	"""
-	grab_game_stream takes in a game name, and stores the top self.num streams
-	objects into self.stream_list
-	"""
-	def grab_game_stream(self, game, offset=0):
-		params = {"game": game, "limit": self.num, "offset": offset}
-		raw_data = requests.get(self.url, params = params)
-		json_data = raw_data.json()
-		self.stream_list = []
-		for i in range(0, len(json_data["streams"])):
-			self.stream_list.append(json_data["streams"][i])
-
-
-	def output_data(self, filename="data.txt"):
-		if self.stream_list == None:
-			print "Error: please choose a type of stream to view first!" # should never happen in regular execution
-			sys.exit(1) # probably don't need this outside of testing
-		with open(filename, 'w') as outfile:
-			json.dump(self.stream_list, outfile, sort_keys=False, indent=4, separators=(',', ': '))
-
-
-def selection_loop(num):
-	print
-	while True:
-		selection = raw_input("Selection: ")
-		print 
-		if not selection.isdigit() or int(selection) > num:
-			print "Invalid selection, please choose again."
-		else:
-			break
-	return int(selection)
+def get_selection(selection_range):
+    lo, hi = selection_range
+    selection = click.prompt('Selection', type=int)
+    while selection < lo or selection > hi:
+        print "Invalid selection, please choose again"
+        selection = click.prompt('Selection', type=int)
+    return selection
 
 def main():
+    TERM_WIDTH, _ = gts.getTerminalSize()
+    LIMIT = 10
 
-	# Initialize the introduction interface
+    # Initialize the introduction interface
+    print "Welcome to TwitchStreamer!  Please choose a category to sort from."
+    print "0. Featured"
+    print "1. Games"
+    print "2. Favorites"
+    selection = get_selection((0, 2))
 
-	xy = getTerminalSize.getTerminalSize() # returns a tuple with (termsize_x, termsize_y)
-	width, height = xy[0], xy[1]
-	if sys.platform.startswith('linux') or sys.platform == 'darwin':
-		os.system('clear')
-	elif sys.platform.startswith('win'):
-		os.system('cls')
-	print
-	print "*" * width
-	print "Welcome to TwitchStreamer!  Please choose a category to sort from."
-	print
-	print "*" * width
-	print "0.  Featured"
-	print "1.  Games"
-	print "2.  Favorites"
-	selection = selection_loop(3)
+    # We load 10 items at a time, and we'll load more using the pagination thingy to load items faster.
+    parser = StreamParser(limit=LIMIT)
 
-	# We load 10 items at a time, and we'll load more using the pagination thingy to load items faster.
+    if selection == 0:
+        # Featured streams
+        streams = parser.get_featured_twitch_streams()
+        print_streams(streams, TERM_WIDTH)
+        stream_selection = get_selection((0, len(streams)))
+        chosen_stream = streams[stream_selection]["channel"]["name"]
+    elif selection == 1:
+        # Stream selection by game
+        games = parser.find_popular_games()
+        print_games(games)
+        game_selection = get_selection((0, len(games)))
 
-	parser = StreamParser(num=10, term_width=width)
+        # Enters a "show more" loop, if user wants to see more games.
+        i = 1
+        while game_selection == 10:
+            games = parser.find_popular_games(offset=parser.limit * i)
+            print_games(games)
+            game_selection = get_selection((0, len(games)))
+            i += 1
 
-	if int(selection) == 0:
-		# load the first 10 featured streams into parser.stream_list and print it
-		# we COULD add a "show more" feature here, but I don't think there should
-		# be more than 10ish featured streams...
-		parser.get_featured_streams()
-		parser.print_streams()
-		stream_selection = selection_loop(len(parser.stream_list))
-		chosen_stream = parser.stream_list[stream_selection]["channel"]["name"]
+        game = games[game_selection]
+        streams = parser.get_game_streams(game)
+        print_streams(streams, TERM_WIDTH)
 
-	elif int(selection) == 1:
-		# load the first 10 most popular games into parser.game_list and print it
-		parser.find_popular_games()
-		parser.print_game_list()
-		game_selection = selection_loop(parser.num)
+        stream_selection = get_selection((0, len(streams)))
+        chosen_stream = streams[stream_selection]["channel"]["name"]
+    else:
+        pass
 
-		# Enters a "show more" loop, if user wants to see more games.
-		i = 1
-		while game_selection == 10:
-			num_shown = parser.num*i
-			parser.find_popular_games(offset=num_shown)
-			parser.print_game_list()
-			game_selection = selection_loop(parser.num)
-			i += 1
+    # TODO: figure out if there's a less shitty way to do this
+    subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best", shell=True)
 
-		chosen_game = parser.game_list[game_selection]
-		parser.grab_game_stream(chosen_game)
-		parser.print_streams()
-
-		# Enters a "show more" loop, if user wants to see more streams.
-		print "10) Show more"
-		stream_selection = selection_loop(parser.num+1)
-		i = 1
-		while stream_selection == 10:
-			num_shown = parser.num*i
-			parser.grab_game_stream(chosen_game, offset=num_shown)
-			parser.print_streams()
-			print "10) Show more"
-			stream_selection = selection_loop(parser.num+1)
-			i += 1
-
-		chosen_stream = parser.stream_list[stream_selection]["channel"]["name"]
-
-	else:
-		pass
-
-	subprocess.call("livestreamer " + "twitch.tv/" + chosen_stream + " best", shell=True)
-
-
-	
 if __name__ == "__main__":
-	main()
+    main()
